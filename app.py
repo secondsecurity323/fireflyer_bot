@@ -1,8 +1,9 @@
 ﻿import os
 import re
 from flask import Flask, request
-from telegram import Bot, Update, ChatMemberStatus
+from telegram import Bot, Update
 from telegram.ext import ApplicationBuilder, CommandHandler, MessageHandler, filters, ContextTypes
+from telegram.constants import ChatMemberStatus
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -11,38 +12,27 @@ BOT_TOKEN = os.getenv("BOT_TOKEN")
 app = Flask(__name__)
 bot = Bot(token=BOT_TOKEN)
 
-BAD_WORDS = ['فحش1', 'فحش2', 'بدکلمه']  # کامل‌ترش کن
+BAD_WORDS = ['فحش1', 'فحش2', 'بدکلمه']
 LINK_PATTERN = r"(https?://|t\.me/|telegram\.me/)"
 
-ADMIN_USERNAME = "Secondsecurity"  # یادت باشه به صورت رشته باشه
+ADMIN_USERNAME = "Secondsecurity"
 
-
-# خوش آمدگویی
 async def welcome(update: Update, context: ContextTypes.DEFAULT_TYPE):
     for user in update.message.new_chat_members:
         await update.message.reply_text(f"خوش اومدی {user.first_name}! ❤️")
 
-
-# ضد لینک
 async def anti_link(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if re.search(LINK_PATTERN, update.message.text or ""):
         await update.message.delete()
 
-
-# ضد فحاشی
 async def anti_bad_words(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    text = update.message.text.lower() if update.message.text else ""
-    if any(word in text for word in BAD_WORDS):
+    if any(word in update.message.text.lower() for word in BAD_WORDS):
         await update.message.delete()
 
-
-# حذف فوروارد
 async def no_forward(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.message.forward_date:
         await update.message.delete()
 
-
-# نمایش مشخصات کاربر
 async def user_info(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = update.message.from_user
     chat = update.effective_chat
@@ -64,8 +54,6 @@ async def user_info(update: Update, context: ContextTypes.DEFAULT_TYPE):
 """
     await update.message.reply_text(msg)
 
-
-# افزودن مدیر
 async def add_admin(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = update.message.from_user
     if user.username == ADMIN_USERNAME:
@@ -85,17 +73,15 @@ async def add_admin(update: Update, context: ContextTypes.DEFAULT_TYPE):
     else:
         await update.message.reply_text("⛔ فقط سازنده‌ی ربات می‌تونه این کارو انجام بده.")
 
-
-# ساخت اپلیکیشن
+# ساخت اپلیکیشن و ثبت هندلرها
 application = ApplicationBuilder().token(BOT_TOKEN).build()
 
 application.add_handler(MessageHandler(filters.StatusUpdate.NEW_CHAT_MEMBERS, welcome))
 application.add_handler(MessageHandler(filters.Regex(LINK_PATTERN), anti_link))
 application.add_handler(MessageHandler(filters.Regex("|".join(BAD_WORDS)), anti_bad_words))
 application.add_handler(MessageHandler(filters.FORWARDED, no_forward))
-application.add_handler(MessageHandler(~filters.COMMAND & filters.TEXT, user_info))
+application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, user_info))
 application.add_handler(CommandHandler("addadmin", add_admin))
-
 
 @app.route(f"/{BOT_TOKEN}", methods=["POST"])
 def webhook():
@@ -103,11 +89,9 @@ def webhook():
     application.process_update(update)
     return "OK"
 
-
 @app.route("/", methods=["GET"])
 def index():
     return "Fire Flyer Bot is alive 🚀"
-
 
 if __name__ == "__main__":
     app.run(port=8080)
